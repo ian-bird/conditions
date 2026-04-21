@@ -1,8 +1,10 @@
 package condition
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"reflect"
 )
 
 var handlers [][]func(error)
@@ -143,7 +145,7 @@ func Error[T any](e error) (result T) {
 		handlers = scopedHandlers[0:i]
 		for _, h := range scopedHandlers[i] {
 			// we only want to use a handler if its return type
-			// matches the one for this error
+			// matches the one for this error (or if its any)
 			func() {
 				defer func() {
 					r := recover()
@@ -151,10 +153,7 @@ func Error[T any](e error) (result T) {
 						return
 					}
 
-					_, ok := r.(resume[T])
-					if ok {
-						panic(r)
-					}
+					panic(r)
 				}()
 				h(e)
 			}()
@@ -214,6 +213,31 @@ func Warn(warn error) {
 	}
 }
 
+func Signal[T any](someErr error) (result T) {
+	var r any
+	func() {
+		defer func() {
+			r = recover()
+		}()
+
+		var w Warning
+		if errors.As(someErr, &w) {
+			BreakOnSignals(func() {
+				Warn(w)
+			})
+			return
+		}
+
+		result = Error[T](someErr)
+	}()
+
+	if r == nil {
+		UseValue(result)
+	}
+
+	return result
+}
+
 // follow the useValue restart, where the provided value
 // is injected in place of the error that occured.
 func UseValue[T any](with T) {
@@ -264,6 +288,12 @@ func Restart[T any](rt restartType, restartCode func(T) T) restartCase[T] {
 // creates a point that can be associated with either the continue
 // or the abort restart, or both.
 func WithRestarts[T any](code func() T, restarts ...restartCase[T]) (result T) {
+
+	var t T
+	if reflect.TypeOf(t) == nil {
+		panic("error: WithRestarts does not support type 'any'")
+	}
+
 	defer func() {
 		r := recover()
 		if r == nil {
