@@ -1,7 +1,6 @@
 package condition
 
 import (
-	"errors"
 	"fmt"
 	"os"
 )
