@@ -28,7 +28,7 @@ func main() {
 		return i
 	})
 
-	// show useValue injecting alternate value into warning
+	// show muffled warning
 	var z int
 	condition.HandlerBind().Handler(func(e error) {
 		var i int
