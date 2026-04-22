@@ -1,8 +1,8 @@
 package condition
 
 import (
-	"os"
 	"errors"
+	"os"
 )
 
 var breakOnSignal = false
@@ -53,20 +53,29 @@ func Handler[E error](h func(E)) singleHandler {
 
 // this is the default way of signalling exceptions. it calls a function when nothing
 // catches it.
-func BaseSignal(e error, whenUncaught func())  {
+func BaseSignal(e error, whenUncaught func()) {
 	// start looking for an appropriate handler
-	if e != nil {
-		for i := len(handlers) - 1; i >= 0; i-- {
-			for _, handler := range handlers[i] {
-				// only one per frame even if the handler declines it
-				if errors.As(e, &handler.concrete) {
-					handler.f(e)
-					break
-				}
+	if e == nil {
+		whenUncaught()
+	}
+
+	// restore handlers when this exits.
+	// we need to keep it restricted during handling of this signal
+	// otherwise a handler raising another signal would loop.
+	handlerCopy := handlers
+	defer func() { handlers = handlerCopy }()
+
+	for i := len(handlers) - 1; i >= 0; i-- {
+		// trim the current level out before looing for a handler
+		handlers = handlers[0:i]
+		for _, handler := range handlerCopy[i] {
+			// only one per frame even if the handler declines it
+			if errors.As(e, &handler.concrete) {
+				handler.f(e)
+				break
 			}
 		}
 	}
 
 	whenUncaught()
 }
-

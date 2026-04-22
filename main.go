@@ -14,9 +14,9 @@ func main() {
 		j = restart.WithRestarts(func() int {
 			condition.BaseSignal(errors.New("err!"), func() {})
 			return j
-		}, restart.Restart(restart.New(), func(i int) int { return i }))
+		}, restart.Restart[int, restart.RestartT](func(i int) int { return i }))
 	}, condition.Handler(func(e error) {
-		restart.InvokeRestart(restart.New(), -1)
+		restart.InvokeRestart[string, restart.RestartT]("a")
 	}))
 
 	fmt.Printf("%v\n", j)

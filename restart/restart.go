@@ -23,7 +23,7 @@ type UnwrappableRestart interface {
 
 // another box allowing for different restart types to be grouped together
 type singleRestart struct {
-	r RestartT
+	r reflect.Type
 	f any
 	k func(any)
 }
@@ -31,10 +31,9 @@ type singleRestart struct {
 // global map of all restarts for the dynamic scope
 var restarts map[reflect.Type][]singleRestart
 
-func init () {
+func init() {
 	restarts = make(map[reflect.Type][]singleRestart)
 }
-
 
 // this type is created by restart.Restart
 type typedRestart[T any] func(T) singleRestart
@@ -82,38 +81,25 @@ func WithRestarts[T any](code func() T, bindings ...typedRestart[T]) T {
 }
 
 // this finds the innermost appropriate handler and calls its continuation with the provided value
-func InvokeRestart[T any](r RestartT, t T) {
+func InvokeRestart[T any, R RestartT](t T) {
 	var zeroT T
 	restartsForT := restarts[reflect.TypeOf(zeroT)]
 	for _, restart := range restartsForT {
-		if Is(r, restart.r) {
+		if reflect.TypeFor[R]() == restart.r {
 			restart.k(t)
 		}
 	}
 
+	var r R
 	panic(fmt.Sprintf("failed to find handler for restart of type %T\n", r))
 }
 
 // create a new type checked restart
-func Restart[T any](r RestartT, code func(T) T) typedRestart[T] {
+func Restart[T any, R RestartT](code func(T) T) typedRestart[T] {
 	return func(_ T) singleRestart {
 		return singleRestart{
-			r: r,
+			r: reflect.TypeFor[R](),
 			f: code,
 		}
 	}
-}
-
-// check if a restart is another type
-func Is(unknown, known RestartT) bool {
-	if reflect.TypeOf(unknown) == reflect.TypeOf(known) {
-		return true
-	}
-
-	unwrappable, ok := unknown.(UnwrappableRestart)
-	if ok {
-		return Is(unwrappable.Unwrap(), known)
-	}
-
-	return false
 }
