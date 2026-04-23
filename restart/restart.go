@@ -49,7 +49,7 @@ type typedRestart[T any] func(T) singleRestart
 // associated with the specific point in the code this appears.
 // we're able to substantially reduce the amount of code needed by modelling
 // the non-local return with an escape continuation.
-func WithRestarts[T any](code func() T, bindings ...typedRestart[T]) T {
+func Case[T any](code func() T, bindings ...typedRestart[T]) T {
 	if len(bindings) == 0 {
 		return code()
 	}
@@ -68,7 +68,7 @@ func WithRestarts[T any](code func() T, bindings ...typedRestart[T]) T {
 			restarts = oldRestarts
 		}()
 
-		toReturn := WithRestarts(code, bindings[1:]...)
+		toReturn := Case(code, bindings[1:]...)
 		nonLocalExit = false
 		return toReturn
 	}).(T)
@@ -81,7 +81,7 @@ func WithRestarts[T any](code func() T, bindings ...typedRestart[T]) T {
 }
 
 // this finds the innermost appropriate handler and calls its continuation with the provided value
-func InvokeRestart[T any, R RestartT](t T) {
+func Invoke[T any, R RestartT](t T) {
 	var zeroT T
 	restartsForT := restarts[reflect.TypeOf(zeroT)]
 	for _, restart := range restartsForT {
@@ -102,4 +102,19 @@ func Restart[T any, R RestartT](code func(T) T) typedRestart[T] {
 			f: code,
 		}
 	}
+}
+
+func Compute() []reflect.Type {
+	allTypes := make(map[reflect.Type]any)
+	for _, restartsForT := range restarts {
+		for _, restartForT := range restartsForT {
+			allTypes[restartForT.r] = struct{}{}
+		}
+	}
+
+	var result []reflect.Type
+	for restartT, _ := range allTypes {
+		result = append(result, restartT)
+	}
+	return result
 }
