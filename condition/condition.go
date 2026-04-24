@@ -30,7 +30,7 @@ func Error(e error) {
 	}
 
 	handler.BaseSignal(e, func() {
-		panic(fmt.Errorf("%w was unhandled", e))
+		panic(fmt.Errorf("%w was unhandled.\n restarts in scope: %v\n", e, restart.Compute()))
 	})
 }
 
@@ -42,13 +42,13 @@ var WHERE = os.Stderr
 func Warn(e error) {
 	restart.Case(func() any {
 		handler.BaseSignal(e, func() {
-			fmt.Fprintf(WHERE, "%v was unhandled", e)
+			fmt.Fprintf(WHERE, "warning: %v\n", e)
 		})
 		return struct{}{}
 	}, restart.Restart[any, MuffleWarnings](func(a any) any { return a }))
 
 	if e == nil {
-		fmt.Fprintf(WHERE, "attempted to raise nil warning!")
+		fmt.Fprintf(WHERE, "attempted to raise nil warning!\n")
 	}
 }
 

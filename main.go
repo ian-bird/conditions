@@ -9,6 +9,35 @@ import (
 	"github.com/ian-bird/conditions/restart"
 )
 
+type divideByZero error
+
+type useValue restart.RestartT
+
+func div(a, b int) int {
+	return restart.Case(func() int {
+		if b == 0 {
+			var e divideByZero = errors.New("divide by 0")
+			condition.Error(e)
+		}
+		return a / b
+	}, restart.Restart[int, useValue](func(i int) int { return i }))
+}
+
+// demo of default handler behavior. Outer handler declines the signal
+// and control passes back here, where we invoke the useValue restart
+// that div offers.
+func defaultZeroDiv(a, b int) int {
+	var result int
+	handler.Bind(func() {
+		result = div(a, b)
+	}, handler.Handler(func(e divideByZero) {
+		handler.BaseSignal(e, func() {})
+		
+		restart.Invoke[int, useValue](0)
+	}))
+	return result
+}
+
 func main() {
 	var j int
 	handler.Bind(func() {
@@ -21,11 +50,17 @@ func main() {
 	}))
 
 	k := condition.HandlerCase(func() int {
-		// condition.Error(errors.New("err!"))
 		return 0
 	}, func(e error) int {
 		return -1
 	})
 
-	fmt.Printf("%v %v\n", j, k)
+	var l int
+	handler.Bind(func() {
+		l = defaultZeroDiv(10, 0)
+	}, handler.Handler(func(e divideByZero) {
+		condition.Warn(e)
+	}))
+
+	fmt.Printf("%v %v %v\n", j, k, l)
 }
