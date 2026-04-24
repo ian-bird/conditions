@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"slices"
 
 	"github.com/ian-bird/conditions/exit_continuation"
 )
@@ -84,6 +85,7 @@ func Case[T any](code func() T, bindings ...typedRestart[T]) T {
 func Invoke[T any, R RestartT](t T) {
 	var zeroT T
 	restartsForT := restarts[reflect.TypeOf(zeroT)]
+	slices.Reverse(restartsForT)
 	for _, restart := range restartsForT {
 		if reflect.TypeFor[R]() == restart.r {
 			restart.k(t)
